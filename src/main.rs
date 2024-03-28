@@ -88,7 +88,7 @@ fn cmd(cmd: &str, args: &[&str]) -> String {
 
 /// Draw a filled bar.
 fn bar(percent: f32, fill_color: Rgba) -> Bar {
-    let filled = (BAR_LENGTH as f32 * percent).floor() as usize;
+    let filled = (BAR_LENGTH as f32 * percent.min(1.)).floor() as usize;
     let mut bar = [fill_color; BAR_LENGTH];
     bar[filled..].fill(COLOR_BG);
     bar
