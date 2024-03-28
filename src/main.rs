@@ -240,6 +240,21 @@ fn main() -> Result<(), Error> {
                 }
             }
             Event::WindowEvent {
+                event: WindowEvent::Focused(focused),
+                ..
+            } => {
+                // Hacky way to prevent sema from being focused,
+                // which happens when switching between workspaces/tags
+                // in river.
+                // If this ever gets implemented:
+                // <https://github.com/rust-windowing/winit/issues/2582>
+                // then we should be able to set it as a wayland overlay
+                // which avoids this problem.
+                if focused {
+                    cmd("riverctl", &["focus-view", "previous"]);
+                }
+            }
+            Event::WindowEvent {
                 event: WindowEvent::RedrawRequested,
                 ..
             } => {
