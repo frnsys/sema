@@ -1,0 +1,16 @@
+[package]
+name = "sema"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+image = "0.25.0"
+battery = "0.7.8"
+regex-lite = "0.1.5"
+pixels = { version = "0.13.0", git = "https://github.com/frnsys/pixels" }
+winit = { version = "0.29", features = ["wayland", "rwh_05"], default-features = false }
+
+[profile.release]
+lto = "fat"
+panic = "abort"
+codegen-units = 1
