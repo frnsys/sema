@@ -6,8 +6,9 @@ edition = "2021"
 [dependencies]
 battery = "0.7.8"
 regex-lite = "0.1.5"
-pixels = { version = "0.13.0", git = "https://github.com/frnsys/pixels" }
-winit = { version = "0.29", features = ["wayland", "rwh_05"], default-features = false }
+gtk-layer-shell = "0.8.0"
+gtk = "0.18.1"
+gdk = "0.18.0"
 
 [profile.release]
 lto = "fat"
