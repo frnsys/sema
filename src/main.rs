@@ -168,8 +168,11 @@ fn wifi() -> Rgba {
         COLOR_BG
     } else {
         let out = cmd("mullvad", &["status"]);
+        let ssid = cmd("iwgetid", &["-r"]);
         if out.contains("Connected") {
             COLOR_OK
+        } else if ssid.is_empty() {
+            COLOR_MUTE
         } else {
             COLOR_URGENT
         }
