@@ -21,20 +21,22 @@ const fn rgba(color: u32) -> Rgba {
 }
 
 /// Run a shell command and get the output.
-fn cmd(cmd: &str, args: &[&str]) -> String {
+fn cmd(cmd: &str, args: &[&str]) -> Result<String, String> {
     let output = Command::new(cmd)
         .args(args)
         .output()
         .expect("Failed to execute command");
 
     if output.status.success() {
-        String::from_utf8(output.stdout)
+        let stdout = String::from_utf8(output.stdout)
             .expect("Should be utf8")
             .trim()
-            .to_string()
+            .to_string();
+        Ok(stdout)
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        panic!("Command failed, error: {}", stderr);
+        let err = format!("Command {} failed, error: {}", cmd, stderr);
+        Err(err.to_string())
     }
 }
 
@@ -66,15 +68,15 @@ pub fn battery() -> Result<Bar, battery::Error> {
 }
 
 /// Get a bar representing the volume state.
-pub fn volume() -> Bar {
+pub fn volume() -> Result<Bar, String> {
     static PERCENT_RE: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r#"(\d{1,3})%"#).expect("Should be a valid regex"));
 
-    let out = cmd("pactl", &["--", "get-sink-mute", "@DEFAULT_SINK@"]);
+    let out = cmd("pactl", &["--", "get-sink-mute", "@DEFAULT_SINK@"])?;
     let muted = out.contains("yes");
     let fill_color = if muted { COLOR_MUTE } else { COLOR_NORMAL };
 
-    let out = cmd("pactl", &["--", "get-sink-volume", "@DEFAULT_SINK@"]);
+    let out = cmd("pactl", &["--", "get-sink-volume", "@DEFAULT_SINK@"])?;
     let caps = PERCENT_RE.captures(&out).expect("Volume should be present");
     let volume: f64 = caps
         .get(1)
@@ -82,37 +84,31 @@ pub fn volume() -> Bar {
         .as_str()
         .parse()
         .expect("Volume should be valid number");
-    (volume / 100., fill_color)
+    Ok((volume / 100., fill_color))
 }
 
 /// Get a color representing the bluetooth state.
-pub fn bluetooth() -> Rgba {
-    let out = cmd("bt", &[]);
-    if out == "on" {
-        COLOR_NORMAL
-    } else {
-        COLOR_BG
-    }
+pub fn bluetooth() -> Result<Rgba, String> {
+    let out = cmd("bt", &[])?;
+    let color = if out == "on" { COLOR_NORMAL } else { COLOR_BG };
+    Ok(color)
 }
 
 /// Get a color representing the microphone state.
-pub fn mic() -> Rgba {
-    let out = cmd("mute", &["status"]);
-    if out == "yes" {
-        COLOR_BG
-    } else {
-        COLOR_URGENT
-    }
+pub fn mic() -> Result<Rgba, String> {
+    let out = cmd("mute", &["status"])?;
+    let color = if out == "yes" { COLOR_BG } else { COLOR_URGENT };
+    Ok(color)
 }
 
 /// Get a color representing the wifi/vpn state.
-pub fn wifi() -> Rgba {
-    let out = cmd("/usr/bin/wifi", &[]);
-    if !out.contains("on") {
+pub fn wifi() -> Result<Rgba, String> {
+    let out = cmd("/usr/bin/wifi", &[])?;
+    let color = if !out.contains("on") {
         COLOR_BG
     } else {
-        let out = cmd("mullvad", &["status"]);
-        let ssid = cmd("iwgetid", &["-r"]);
+        let out = cmd("mullvad", &["status"])?;
+        let ssid = cmd("iwgetid", &["-r"]).unwrap_or("".into());
         if out.contains("Connected") {
             COLOR_OK
         } else if ssid.is_empty() {
@@ -120,5 +116,6 @@ pub fn wifi() -> Rgba {
         } else {
             COLOR_URGENT
         }
-    }
+    };
+    Ok(color)
 }

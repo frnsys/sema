@@ -47,7 +47,9 @@ fn setup(app: &gtk::Application) {
     win.set_child(Some(&drawing_area));
     drawing_area.set_size_request(WIN_WIDTH, WIN_HEIGHT);
     drawing_area.connect_draw(|_, cr| {
-        draw(cr);
+        if let Err(err) = draw(cr) {
+            eprintln!("{}", err);
+        }
         gtk::glib::Propagation::Stop
     });
 
@@ -59,7 +61,7 @@ fn setup(app: &gtk::Application) {
     win.show_all();
 }
 
-fn draw(cr: &Context) {
+fn draw(cr: &Context) -> Result<(), String> {
     // Transparent background
     cr.set_source_rgba(0.0, 0.0, 0.0, 0.0);
     cr.set_operator(cairo::Operator::Source);
@@ -70,13 +72,15 @@ fn draw(cr: &Context) {
         cr,
         2,
         0.0,
-        status::battery().expect("Failed to get battery info"),
+        status::battery().map_err(|_| "Failed to get battery info")?,
     );
-    draw_bar(cr, 1, 0.0, status::volume());
+    draw_bar(cr, 1, 0.0, status::volume()?);
 
-    draw_bar(cr, 0, 0.8, (0.2, status::mic()));
-    draw_bar(cr, 0, 0.6, (0.2, status::bluetooth()));
-    draw_bar(cr, 0, 0.0, (0.5, status::wifi()));
+    draw_bar(cr, 0, 0.8, (0.2, status::mic()?));
+    draw_bar(cr, 0, 0.6, (0.2, status::bluetooth()?));
+    draw_bar(cr, 0, 0.0, (0.5, status::wifi()?));
+
+    Ok(())
 }
 
 /// Draw a single bar.
