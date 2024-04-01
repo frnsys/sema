@@ -11,7 +11,7 @@ use gtk::{prelude::*, ApplicationWindow, DrawingArea};
 use gtk_layer_shell::{Edge, Layer, LayerShell};
 
 /// Update interval in seconds.
-const REFRESH_RATE: u32 = 2;
+const REFRESH_RATE: u32 = 5;
 
 /// Number of bars and their thickness.
 const N_BARS: i32 = 3;
@@ -29,6 +29,9 @@ fn setup(app: &gtk::Application) {
         .border_width(0)
         .app_paintable(true)
         .decorated(false)
+        .resizable(false)
+        .can_focus(false)
+        .has_tooltip(false)
         .title("sema")
         .build();
 
