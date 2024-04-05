@@ -48,6 +48,10 @@ pub fn battery() -> Result<Bar, battery::Error> {
         .next()
         .expect("Should be at least one battery")?;
     let bar = match batt.state() {
+        // "Not Charging" state not yet supported,
+        // reported as "Unknown".
+        // https://github.com/svartalf/rust-battery/pull/100
+        battery::State::Unknown => (1.0, COLOR_OK),
         battery::State::Full => (1.0, COLOR_OK),
         battery::State::Charging => {
             let percent = batt.state_of_charge().value as f64;
