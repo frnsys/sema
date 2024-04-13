@@ -79,9 +79,10 @@ fn draw(cr: &Context) -> Result<(), String> {
     );
     draw_bar(cr, 1, 0.0, status::volume()?);
 
-    draw_bar(cr, 0, 0.8, (0.2, status::mic()?));
-    draw_bar(cr, 0, 0.6, (0.2, status::bluetooth()?));
-    draw_bar(cr, 0, 0.0, (0.5, status::wifi()?));
+    draw_bar(cr, 0, 0.80, (0.200, status::mic()?));
+    draw_bar(cr, 0, 0.60, (0.200, status::bluetooth()?));
+    draw_bar(cr, 0, 0.45, (0.125, status::layout()?));
+    draw_bar(cr, 0, 0.00, (0.400, status::wifi()?));
 
     Ok(())
 }

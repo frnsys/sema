@@ -93,15 +93,20 @@ pub fn volume() -> Result<Bar, String> {
 
 /// Get a color representing the bluetooth state.
 pub fn bluetooth() -> Result<Rgba, String> {
-    let out = cmd("bt", &[])?;
-    let color = if out == "on" { COLOR_NORMAL } else { COLOR_BG };
+    let out = cmd("/usr/bin/bluetooth", &[])?;
+    let color = if out.contains("on") {
+        COLOR_NORMAL
+    } else {
+        COLOR_BG
+    };
     Ok(color)
 }
 
 /// Get a color representing the microphone state.
 pub fn mic() -> Result<Rgba, String> {
-    let out = cmd("mute", &["status"])?;
-    let color = if out == "yes" { COLOR_BG } else { COLOR_URGENT };
+    let out = cmd("pactl", &["--", "get-source-mute", "@DEFAULT_SOURCE@"])?;
+    let muted = out.contains("yes");
+    let color = if muted { COLOR_BG } else { COLOR_URGENT };
     Ok(color)
 }
 
@@ -120,6 +125,17 @@ pub fn wifi() -> Result<Rgba, String> {
         } else {
             COLOR_URGENT
         }
+    };
+    Ok(color)
+}
+
+/// Get a color representing if the current layout is monocle (fake fullscreen).
+pub fn layout() -> Result<Rgba, String> {
+    let out = cmd("cat", &["/tmp/ws_fs"])?;
+    let color = if out.contains("on") {
+        COLOR_WARN
+    } else {
+        COLOR_BG
     };
     Ok(color)
 }
