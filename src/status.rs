@@ -93,8 +93,8 @@ pub fn volume() -> Result<Bar, String> {
 
 /// Get a color representing the bluetooth state.
 pub fn bluetooth() -> Result<Rgba, String> {
-    let out = cmd("/usr/bin/bluetooth", &[])?;
-    let color = if out.contains("on") {
+    let out = cmd("bluetoothctl", &["show"])?;
+    let color = if out.contains("Powered: yes") {
         COLOR_NORMAL
     } else {
         COLOR_BG
@@ -112,8 +112,8 @@ pub fn mic() -> Result<Rgba, String> {
 
 /// Get a color representing the wifi/vpn state.
 pub fn wifi() -> Result<Rgba, String> {
-    let out = cmd("/usr/bin/wifi", &[])?;
-    let color = if !out.contains("on") {
+    let out = cmd("ip", &["address"])?;
+    let color = if !out.contains("state UP") {
         COLOR_BG
     } else {
         let out = cmd("mullvad", &["status"])?;
