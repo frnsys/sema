@@ -1,30 +1,45 @@
-#![feature(lazy_cell)]
-#![feature(const_fn_floating_point_arithmetic)]
-
+mod bars;
 mod status;
 
+use bars::{Bar, BAR_THICKNESS};
 use gdk::{
     cairo::{self, Context},
     glib::timeout_add_seconds_local,
 };
 use gtk::{prelude::*, ApplicationWindow, DrawingArea};
 use gtk_layer_shell::{Edge, Layer, LayerShell};
+use status::Status;
 
 /// Update interval in seconds.
-const REFRESH_RATE: u32 = 5;
+const REFRESH_RATE: u32 = 2;
 
-/// Number of bars and their thickness.
-const N_BARS: i32 = 3;
-const BAR_THICKNESS: i32 = 2;
-const BAR_HEIGHT: i32 = 16;
+const WIN_HEIGHT: i32 = BAR_THICKNESS;
 
-const WIN_HEIGHT: i32 = BAR_HEIGHT;
-const WIN_WIDTH: i32 = N_BARS * BAR_THICKNESS;
+const SCHEMA: &[Bar] = &[
+    Bar {
+        width: 4,
+        status: Status::Wifi,
+    },
+    Bar {
+        width: 4,
+        status: Status::Bluetooth,
+    },
+    Bar {
+        width: 12,
+        status: Status::Volume,
+    },
+    Bar {
+        width: 12,
+        status: Status::Battery,
+    },
+];
 
 fn setup(app: &gtk::Application) {
+    let win_width = SCHEMA.iter().map(|bar| bar.width).sum::<u32>() as i32;
+
     let win = ApplicationWindow::builder()
         .application(app)
-        .default_width(WIN_WIDTH)
+        .default_width(win_width)
         .default_height(WIN_HEIGHT)
         .border_width(0)
         .app_paintable(true)
@@ -48,9 +63,9 @@ fn setup(app: &gtk::Application) {
     // Drawing the bars
     let drawing_area = DrawingArea::new();
     win.set_child(Some(&drawing_area));
-    drawing_area.set_size_request(WIN_WIDTH, WIN_HEIGHT);
-    drawing_area.connect_draw(|_, cr| {
-        if let Err(err) = draw(cr) {
+    drawing_area.set_size_request(win_width, WIN_HEIGHT);
+    drawing_area.connect_draw(|_, ctx| {
+        if let Err(err) = draw(ctx) {
             eprintln!("{}", err);
         }
         gtk::glib::Propagation::Stop
@@ -64,45 +79,18 @@ fn setup(app: &gtk::Application) {
     win.show_all();
 }
 
-fn draw(cr: &Context) -> Result<(), String> {
+fn draw(ctx: &Context) -> Result<(), String> {
     // Transparent background
-    cr.set_source_rgba(0.0, 0.0, 0.0, 0.0);
-    cr.set_operator(cairo::Operator::Source);
-    cr.paint().expect("Failed to paint");
+    ctx.set_source_rgba(0.0, 0.0, 0.0, 0.0);
+    ctx.set_operator(cairo::Operator::Source);
+    ctx.paint().expect("Failed to paint");
 
     // Draw the bars
-    draw_bar(
-        cr,
-        2,
-        0.0,
-        status::battery().map_err(|_| "Failed to get battery info")?,
-    );
-    draw_bar(cr, 1, 0.0, status::volume()?);
-
-    draw_bar(cr, 0, 0.80, (0.200, status::mic()?));
-    draw_bar(cr, 0, 0.60, (0.200, status::bluetooth()?));
-    draw_bar(cr, 0, 0.45, (0.125, status::layout()?));
-    draw_bar(cr, 0, 0.00, (0.400, status::wifi()?));
-
+    let mut x = 0.;
+    for bar in SCHEMA {
+        x = bar.draw(ctx, x)?;
+    }
     Ok(())
-}
-
-/// Draw a single bar.
-///
-/// * `col`: column to draw the bar in. Automatically adjusts for bar width.
-/// * `y`: y position to draw in as a percent of the window height.
-/// * `percent`: height of the bar as a percent of the window height.
-/// * `[r, g, b, a]`: decimal color to fill the bar with.
-fn draw_bar(cr: &Context, col: i32, y: f64, (percent, [r, g, b, a]): (f64, [f64; 4])) {
-    let filled = (WIN_HEIGHT as f64 * percent.min(1.)).floor();
-    cr.rectangle(
-        (col * BAR_THICKNESS) as f64,
-        (1. - y) * WIN_HEIGHT as f64 - filled,
-        BAR_THICKNESS as f64 - 0.5, // Take off a bit for spacing
-        filled,
-    );
-    cr.set_source_rgba(r, g, b, a);
-    cr.fill().expect("Failed to fill the bar");
 }
 
 fn main() {

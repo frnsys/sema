@@ -2,22 +2,31 @@ use std::{process::Command, sync::LazyLock};
 
 use regex_lite::Regex;
 
+use crate::bars::{rgba, BarFill, Rgba};
+
 const COLOR_URGENT: Rgba = rgba(0xcf4955ff);
 const COLOR_WARN: Rgba = rgba(0xfbc011ff);
 const COLOR_OK: Rgba = rgba(0x0a8c6cff);
 const COLOR_BG: Rgba = rgba(0x161616ff);
 const COLOR_MUTE: Rgba = rgba(0x777777ff);
 const COLOR_NORMAL: Rgba = rgba(0x256ccfff);
+const COLOR_VOLUME: Rgba = rgba(0xccccccff);
 
-type Rgba = [f64; 4];
-type Bar = (f64, Rgba);
-
-const fn rgba(color: u32) -> Rgba {
-    let r = ((color >> 24) & 0xFF) as f64 / 255.0;
-    let g = ((color >> 16) & 0xFF) as f64 / 255.0;
-    let b = ((color >> 8) & 0xFF) as f64 / 255.0;
-    let a = (color & 0xFF) as f64 / 255.0;
-    [r, g, b, a]
+pub enum Status {
+    Volume,
+    Wifi,
+    Battery,
+    Bluetooth,
+}
+impl Status {
+    pub fn fill(&self) -> Result<BarFill, String> {
+        match self {
+            Self::Volume => volume(),
+            Self::Wifi => wifi(),
+            Self::Battery => battery().map_err(|_| "Failed to get battery info".into()),
+            Self::Bluetooth => bluetooth(),
+        }
+    }
 }
 
 /// Run a shell command and get the output.
@@ -41,7 +50,7 @@ fn cmd(cmd: &str, args: &[&str]) -> Result<String, String> {
 }
 
 /// Get a bar representing the battery state.
-pub fn battery() -> Result<Bar, battery::Error> {
+fn battery() -> Result<BarFill, battery::Error> {
     let manager = battery::Manager::new()?;
     let batt = manager
         .batteries()?
@@ -68,17 +77,20 @@ pub fn battery() -> Result<Bar, battery::Error> {
         }
         _ => (1.0, COLOR_BG),
     };
-    Ok(bar)
+    Ok(BarFill {
+        width: bar.0,
+        color: bar.1,
+    })
 }
 
 /// Get a bar representing the volume state.
-pub fn volume() -> Result<Bar, String> {
+fn volume() -> Result<BarFill, String> {
     static PERCENT_RE: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r#"(\d{1,3})%"#).expect("Should be a valid regex"));
 
     let out = cmd("pactl", &["--", "get-sink-mute", "@DEFAULT_SINK@"])?;
     let muted = out.contains("yes");
-    let fill_color = if muted { COLOR_MUTE } else { COLOR_NORMAL };
+    let fill_color = if muted { COLOR_MUTE } else { COLOR_VOLUME };
 
     let out = cmd("pactl", &["--", "get-sink-volume", "@DEFAULT_SINK@"])?;
     let caps = PERCENT_RE.captures(&out).expect("Volume should be present");
@@ -88,30 +100,25 @@ pub fn volume() -> Result<Bar, String> {
         .as_str()
         .parse()
         .expect("Volume should be valid number");
-    Ok((volume / 100., fill_color))
+    Ok(BarFill {
+        width: volume / 100.,
+        color: fill_color,
+    })
 }
 
-/// Get a color representing the bluetooth state.
-pub fn bluetooth() -> Result<Rgba, String> {
+/// Get a bar representing the bluetooth state.
+fn bluetooth() -> Result<BarFill, String> {
     let out = cmd("bluetoothctl", &["show"])?;
     let color = if out.contains("Powered: yes") {
         COLOR_NORMAL
     } else {
         COLOR_BG
     };
-    Ok(color)
-}
-
-/// Get a color representing the microphone state.
-pub fn mic() -> Result<Rgba, String> {
-    let out = cmd("pactl", &["--", "get-source-mute", "@DEFAULT_SOURCE@"])?;
-    let muted = out.contains("yes");
-    let color = if muted { COLOR_BG } else { COLOR_URGENT };
-    Ok(color)
+    Ok(BarFill { width: 1., color })
 }
 
 /// Get a color representing the wifi/vpn state.
-pub fn wifi() -> Result<Rgba, String> {
+fn wifi() -> Result<BarFill, String> {
     let out = cmd("ip", &["address"])?;
     let color = if !out.contains("state UP") {
         COLOR_BG
@@ -126,16 +133,5 @@ pub fn wifi() -> Result<Rgba, String> {
             COLOR_URGENT
         }
     };
-    Ok(color)
-}
-
-/// Get a color representing if the current layout is monocle (fake fullscreen).
-pub fn layout() -> Result<Rgba, String> {
-    let out = cmd("cat", &["/tmp/ws_fs"])?;
-    let color = if out.contains("on") {
-        COLOR_WARN
-    } else {
-        COLOR_BG
-    };
-    Ok(color)
+    Ok(BarFill { width: 1., color })
 }
